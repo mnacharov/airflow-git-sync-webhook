@@ -118,6 +118,9 @@ func getGitSyncPods(clientset *kubernetes.Clientset) ([]string, error) {
 		return podsList, err
 	}
 	for _, pod := range pods.Items {
+		if pod.ObjectMeta.DeletionTimestamp != nil {
+			continue
+		}
 		for _, container := range pod.Spec.Containers {
 			if container.Name == "git-sync" {
 				podsList = append(podsList, pod.Name)
