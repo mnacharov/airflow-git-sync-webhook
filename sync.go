@@ -34,6 +34,7 @@ func gitSyncWebhook(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		errors = append(errors, err)
 	} else {
+		log.Printf("list of pods with git-sync to code reload: %v\n", podNames)
 		// 2. exec `kill -HUP 1` on those containers
 		for _, podName := range podNames {
 			err = sendSignalToGitSync(config, clientset, podName, "HUP")
@@ -83,6 +84,7 @@ func reloadWebserver(clientset *kubernetes.Clientset) error {
 }
 
 func sendSignalToGitSync(config *rest.Config, clientset *kubernetes.Clientset, podName string, signal string) error {
+        log.Printf("Send %s signal to %s\n", signal, podName)
 	req := clientset.CoreV1().RESTClient().Post().Resource("pods").Name(podName).Namespace("airflow").SubResource("exec")
 	option := &v1.PodExecOptions{
 		Container: "git-sync",
@@ -104,6 +106,7 @@ func sendSignalToGitSync(config *rest.Config, clientset *kubernetes.Clientset, p
 		Stdin:  nil,
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
+		Tty: true,
 	})
 	if err != nil {
 		return err
@@ -118,6 +121,9 @@ func getGitSyncPods(clientset *kubernetes.Clientset) ([]string, error) {
 		return podsList, err
 	}
 	for _, pod := range pods.Items {
+		if pod.Status.Phase != v1.PodRunning {
+			continue
+		}
 		if pod.ObjectMeta.DeletionTimestamp != nil {
 			continue
 		}
